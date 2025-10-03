@@ -23,7 +23,7 @@ import {
 } from '@mui/material';
 import {
   Block as BlockIcon,
-  UnblockIcon,
+
   Refresh as RefreshIcon,
   Info as InfoIcon,
 } from '@mui/icons-material';
@@ -33,7 +33,7 @@ function ThreatMonitoring() {
   const [threats, setThreats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
-  const [selectedThreat, setSelectedThreat] = useState(null);
+  const [, setSelectedThreat] = useState(null);
   const [blockIp, setBlockIp] = useState('');
   const [message, setMessage] = useState(null);
 

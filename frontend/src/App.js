@@ -37,7 +37,7 @@ import { WebSocketService } from './services/WebSocketService';
 const drawerWidth = 240;
 
 function App() {
-  const [alerts, setAlerts] = useState([]);
+
   const [currentAlert, setCurrentAlert] = useState(null);
   const [threatCount, setThreatCount] = useState(0);
   const navigate = useNavigate();
@@ -47,7 +47,7 @@ function App() {
     // Initialize WebSocket connection
     const wsService = new WebSocketService();
     
-    wsService.connect('ws://localhost:8000/ws', {
+    wsService.connect('ws://localhost:5000/ws', {
       onMessage: (data) => {
         handleWebSocketMessage(data);
       },

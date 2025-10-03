@@ -17,7 +17,7 @@ import { apiService } from '../services/ApiService';
 
 function NetworkAnalysis() {
   const [sessions, setSessions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   useEffect(() => {
     loadNetworkData();

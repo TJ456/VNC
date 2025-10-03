@@ -20,7 +20,6 @@ import {
   Warning as WarningIcon,
   Block as BlockIcon,
   NetworkCheck as NetworkIcon,
-  Speed as SpeedIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { Line } from 'react-chartjs-2';
