@@ -1,0 +1,169 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model VNCSession {
+  id                   Int         @id @default(autoincrement())
+  clientIp            String      @map("client_ip") @db.VarChar(45)
+  serverIp            String      @map("server_ip") @db.VarChar(45)
+  clientPort          Int?        @map("client_port")
+  serverPort          Int         @default(5900) @map("server_port")
+  startTime           DateTime    @default(now()) @map("start_time")
+  endTime             DateTime?   @map("end_time")
+  status              String      @default("active") @db.VarChar(20)
+  dataTransferred     Float       @default(0.0) @map("data_transferred")
+  packetsSent         Int         @default(0) @map("packets_sent")
+  packetsReceived     Int         @default(0) @map("packets_received")
+  screenshotsCount    Int         @default(0) @map("screenshots_count")
+  clipboardOperations Int         @default(0) @map("clipboard_operations")
+  fileOperations      Int         @default(0) @map("file_operations")
+  riskScore           Float       @default(0.0) @map("risk_score")
+  anomalyScore        Float       @default(0.0) @map("anomaly_score")
+  authMethod          String?     @map("auth_method") @db.VarChar(50)
+  userAgent           String?     @map("user_agent") @db.VarChar(255)
+  createdAt           DateTime    @default(now()) @map("created_at")
+  updatedAt           DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  threats             ThreatLog[]
+
+  @@map("vnc_sessions")
+  @@index([clientIp])
+  @@index([startTime])
+  @@index([status])
+}
+
+model ThreatLog {
+  id                    Int          @id @default(autoincrement())
+  timestamp             DateTime     @default(now())
+  threatType            String       @map("threat_type") @db.VarChar(100)
+  severity              String       @db.VarChar(20)
+  confidence            Float        @default(0.0)
+  sourceIp              String       @map("source_ip") @db.VarChar(45)
+  sourcePort            Int?         @map("source_port")
+  targetIp              String?      @map("target_ip") @db.VarChar(45)
+  targetPort            Int?         @map("target_port")
+  description           String
+  attackVector          String?      @map("attack_vector") @db.VarChar(100)
+  payloadSize           Int?         @map("payload_size")
+  detectionMethod       String       @map("detection_method") @db.VarChar(100)
+  detectorVersion       String?      @map("detector_version") @db.VarChar(50)
+  actionTaken           String       @map("action_taken") @db.VarChar(100)
+  blockedAutomatically  Boolean      @default(false) @map("blocked_automatically")
+  manualReviewRequired  Boolean      @default(false) @map("manual_review_required")
+  metadata              Json?
+  sessionId             Int?         @map("session_id")
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  session               VNCSession?  @relation(fields: [sessionId], references: [id])
+  firewallRules         FirewallRule[]
+
+  @@map("threat_logs")
+  @@index([timestamp])
+  @@index([threatType])
+  @@index([severity])
+  @@index([sourceIp])
+}
+
+model SystemMetrics {
+  id                    Int      @id @default(autoincrement())
+  timestamp             DateTime @default(now())
+  cpuUsage              Float    @map("cpu_usage")
+  memoryUsage           Float    @map("memory_usage")
+  diskUsage             Float?   @map("disk_usage")
+  networkIo             Float    @map("network_io")
+  activeConnections     Int      @map("active_connections")
+  bandwidthUtilization  Float?   @map("bandwidth_utilization")
+  threatsDetected       Int      @default(0) @map("threats_detected")
+  threatsBlocked        Int      @default(0) @map("threats_blocked")
+  falsePositives        Int      @default(0) @map("false_positives")
+  vncSessionsActive     Int      @default(0) @map("vnc_sessions_active")
+  vncDataTransferred    Float    @default(0.0) @map("vnc_data_transferred")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("system_metrics")
+  @@index([timestamp])
+}
+
+model FirewallRule {
+  id                Int        @id @default(autoincrement())
+  ruleName          String     @unique @map("rule_name") @db.VarChar(255)
+  sourceIp          String?    @map("source_ip") @db.VarChar(45)
+  sourcePort        String?    @map("source_port") @db.VarChar(20)
+  destinationIp     String?    @map("destination_ip") @db.VarChar(45)
+  destinationPort   String?    @map("destination_port") @db.VarChar(20)
+  protocol          String     @default("tcp") @db.VarChar(10)
+  action            String     @db.VarChar(20)
+  priority          Int        @default(100)
+  isActive          Boolean    @default(true) @map("is_active")
+  autoCreated       Boolean    @default(false) @map("auto_created")
+  triggerThreatId   Int?       @map("trigger_threat_id")
+  expiresAt         DateTime?  @map("expires_at")
+  description       String?
+  tags              String?    @db.VarChar(255)
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  triggerThreat     ThreatLog? @relation(fields: [triggerThreatId], references: [id])
+
+  @@map("firewall_rules")
+  @@index([sourceIp])
+  @@index([isActive])
+  @@index([expiresAt])
+}
+
+model DetectionRule {
+  id                   Int      @id @default(autoincrement())
+  ruleName             String   @unique @map("rule_name") @db.VarChar(255)
+  ruleType             String   @map("rule_type") @db.VarChar(50)
+  category             String   @db.VarChar(100)
+  conditions           Json
+  thresholdValue       Float?   @map("threshold_value")
+  timeWindow           Int?     @map("time_window")
+  severity             String   @default("medium") @db.VarChar(20)
+  description          String?
+  isActive             Boolean  @default(true) @map("is_active")
+  triggerCount         Int      @default(0) @map("trigger_count")
+  falsePositiveCount   Int      @default(0) @map("false_positive_count")
+  lastTriggered        DateTime? @map("last_triggered")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@map("detection_rules")
+  @@index([ruleType])
+  @@index([category])
+  @@index([isActive])
+}
+
+model AuditLog {
+  id           Int       @id @default(autoincrement())
+  timestamp    DateTime  @default(now())
+  eventType    String    @map("event_type") @db.VarChar(100)
+  actor        String    @db.VarChar(100)
+  action       String    @db.VarChar(255)
+  target       String?   @db.VarChar(255)
+  sourceIp     String?   @map("source_ip") @db.VarChar(45)
+  userAgent    String?   @map("user_agent") @db.VarChar(500)
+  sessionId    String?   @map("session_id") @db.VarChar(100)
+  success      Boolean
+  errorMessage String?   @map("error_message")
+  details      Json?
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@map("audit_logs")
+  @@index([timestamp])
+  @@index([eventType])
+  @@index([actor])
+}
