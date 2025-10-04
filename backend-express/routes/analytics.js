@@ -208,7 +208,7 @@ async function generateTimelineData(prisma, startDate, endDate, interval) {
   return timePoints;
 }
 
-// Get dashboard analytics (existing endpoint)
+// Get dashboard analytics (existing endpoint) - updated to include threat timeline
 router.get('/dashboard', async (req, res) => {
   try {
     const { prisma } = req;
@@ -216,6 +216,7 @@ router.get('/dashboard', async (req, res) => {
     const now = new Date();
     const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const last7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const last1h = new Date(now.getTime() - 1 * 60 * 60 * 1000);
     
     // Get threat counts
     const [threats24h, threats7d, activeSessions, blockedIps] = await Promise.all([
@@ -236,12 +237,45 @@ router.get('/dashboard', async (req, res) => {
       })
     ]);
     
+    // Generate threat timeline data for the last 5 intervals (15-minute intervals for last hour)
+    const threatTimelineLabels = [];
+    const threatTimelineData = [];
+    const intervalCount = 5;
+    
+    for (let i = intervalCount - 1; i >= 0; i--) {
+      const intervalStart = new Date(now.getTime() - (i + 1) * 15 * 60 * 1000);
+      const intervalEnd = new Date(now.getTime() - i * 15 * 60 * 1000);
+      
+      // Format label
+      if (i === 0) {
+        threatTimelineLabels.push('Now');
+      } else {
+        threatTimelineLabels.push(`${(intervalCount - i) * 15}m ago`);
+      }
+      
+      // Get threat count for this interval
+      const threatCount = await prisma.threatLog.count({
+        where: {
+          timestamp: {
+            gte: intervalStart,
+            lt: intervalEnd
+          }
+        }
+      });
+      
+      threatTimelineData.push(threatCount);
+    }
+    
     res.json({
       threats_24h: threats24h,
       threats_7d: threats7d,
       active_sessions: activeSessions,
       blocked_ips: blockedIps,
       system_status: 'healthy',
+      threat_timeline: {
+        labels: threatTimelineLabels,
+        data: threatTimelineData
+      },
       last_updated: now.toISOString()
     });
   } catch (error) {

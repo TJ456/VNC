@@ -48,10 +48,10 @@ const zeroTrustAccess = new ZeroTrustAccessService();
 const threatIntelligence = new DecentralizedThreatIntelligenceService();
 const dataProvenance = new DataProvenanceService();
 
-// Rate limiting
+// Rate limiting (temporarily disabled for debugging)
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 10000,
   message: 'Too many requests from this IP, please try again later.',
 });
 
