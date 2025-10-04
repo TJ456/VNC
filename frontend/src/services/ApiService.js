@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 class ApiService {
   constructor() {
@@ -73,9 +73,7 @@ class ApiService {
 
   // IP blocking
   async blockIp(ip) {
-    const response = await this.client.post('/firewall/block-ip', {
-      ip: ip
-    });
+    const response = await this.client.post(`/firewall/block-ip?ip=${ip}`);
     return response.data;
   }
 

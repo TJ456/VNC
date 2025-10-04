@@ -52,10 +52,15 @@ function Analytics() {
       setError(null);
       
       const response = await axios.get(`/api/analytics/comprehensive?period=${selectedPeriod}`);
+      console.log('Analytics data received:', response.data);
       setAnalyticsData(response.data);
     } catch (err) {
       console.error('Error fetching analytics data:', err);
-      setError('Failed to load analytics data. Please try again.');
+      if (err.response?.status === 429) {
+        setError('Rate limit exceeded. Please wait a few minutes and try again.');
+      } else {
+        setError('Failed to load analytics data. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

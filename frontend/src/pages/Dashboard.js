@@ -71,6 +71,11 @@ function Dashboard() {
         apiService.getMetrics(),
       ]);
 
+      console.log('Dashboard data received:', dashboardRes);
+      console.log('Sessions data received:', sessionsRes);
+      console.log('Threats data received:', threatsRes);
+      console.log('Metrics data received:', metricsRes);
+
       setDashboardData(dashboardRes);
       setSessions(sessionsRes.sessions || []);
       setThreats(threatsRes.threats || []);
@@ -106,13 +111,13 @@ function Dashboard() {
     );
   }
 
-  // Chart data for threats over time
+  // Chart data for threats over time - now using dynamic data
   const threatChartData = {
-    labels: ['1h ago', '45m', '30m', '15m', 'Now'],
+    labels: dashboardData?.threat_timeline?.labels || ['1h ago', '45m', '30m', '15m', 'Now'],
     datasets: [
       {
         label: 'Threats Detected',
-        data: [2, 5, 3, 8, threats.length],
+        data: dashboardData?.threat_timeline?.data || [2, 5, 3, 8, threats.length],
         borderColor: 'rgb(244, 67, 54)',
         backgroundColor: 'rgba(244, 67, 54, 0.2)',
         tension: 0.1,
