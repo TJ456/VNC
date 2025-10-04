@@ -15,6 +15,7 @@
 const net = require('net');
 const crypto = require('crypto');
 const EventEmitter = require('events');
+const FileIntegrityService = require('../services/FileIntegrityService');
 
 class VNCProtocolMiddleware extends EventEmitter {
   constructor(blockchainServices) {
@@ -23,13 +24,15 @@ class VNCProtocolMiddleware extends EventEmitter {
     this.zeroTrustAccess = blockchainServices.zeroTrustAccess;
     this.dataProvenance = blockchainServices.dataProvenance;
     this.threatIntelligence = blockchainServices.threatIntelligence;
+    this.fileIntegrityService = new FileIntegrityService();
     
     // Configuration from environment variables
     this.config = {
       vnc: {
         ports: (process.env.VNC_PORTS || '5900,5901,5902,5903,5904,5905').split(',').map(p => parseInt(p.trim())),
-        proxyPortOffset: parseInt(process.env.DEMO_VNC_PROXY_PORT_OFFSET) || 100,
-        serverHost: process.env.VNC_SERVER_HOST || '127.0.0.1'
+        proxyPortOffset: parseInt(process.env.VNC_PROXY_PORT_OFFSET) || 100,
+        serverHost: process.env.VNC_SERVER_HOST || '127.0.0.1',
+        enableInterception: process.env.VNC_PROXY_ENABLED === 'true'
       },
       demo: {
         clientIp: process.env.DEMO_CLIENT_IP || '10.0.0.1',
@@ -46,18 +49,35 @@ class VNCProtocolMiddleware extends EventEmitter {
       KEY_EVENT: 4,
       POINTER_EVENT: 5,
       CLIENT_CUT_TEXT: 6,
+      FILE_TRANSFER_REQUEST: 7,
       // Server to Client
       FRAMEBUFFER_UPDATE: 0,
       SET_COLOUR_MAP_ENTRIES: 1,
       BELL: 2,
-      SERVER_CUT_TEXT: 3
+      SERVER_CUT_TEXT: 3,
+      FILE_TRANSFER_RESPONSE: 8
     };
     
     this.activeSessions = new Map();
     this.interceptedConnections = new Map();
     this.enforcementRules = new Map();
     
+    // Enhanced configuration for active prevention
+    this.preventiveActions = {
+      blockKeyEvent: process.env.BLOCK_KEY_EVENT === 'true',
+      blockPointerEvent: process.env.BLOCK_POINTER_EVENT === 'true',
+      blockFileTransfer: process.env.BLOCK_FILE_TRANSFER === 'true',
+      blockClipboard: process.env.BLOCK_CLIPBOARD === 'true',
+      maxDataTransferRate: parseInt(process.env.MAX_DATA_TRANSFER_RATE) || 100, // MB/s
+      maxScreenshotRate: parseInt(process.env.MAX_SCREENSHOT_RATE) || 10 // screenshots/minute
+    };
+    
     console.log('🔌 VNC Protocol Middleware initialized for real-time interception');
+    if (this.config.vnc.enableInterception) {
+      console.log('✅ Active VNC protocol interception enabled');
+    } else {
+      console.log('ℹ️  Passive VNC monitoring mode (set VNC_PROXY_ENABLED=true for active interception)');
+    }
   }
 
   /**
@@ -65,6 +85,11 @@ class VNCProtocolMiddleware extends EventEmitter {
    * Creates a transparent proxy that monitors all VNC protocol messages
    */
   startVNCInterception(vncPorts = this.config.vnc.ports) {
+    if (!this.config.vnc.enableInterception) {
+      console.log('ℹ️  VNC interception disabled. Running in passive monitoring mode only.');
+      return;
+    }
+    
     vncPorts.forEach(port => {
       this.createVNCProxy(port);
     });
@@ -95,7 +120,11 @@ class VNCProtocolMiddleware extends EventEmitter {
         accessToken: null,
         dataTransferred: 0,
         fileTransfers: [],
-        violations: []
+        violations: [],
+        keyEvents: 0,
+        pointerEvents: 0,
+        clipboardOps: 0,
+        screenshots: 0
       };
       
       this.activeSessions.set(sessionId, sessionData);
@@ -132,6 +161,16 @@ class VNCProtocolMiddleware extends EventEmitter {
       const messages = this.parseVNCMessages(data, 'client');
       
       for (const message of messages) {
+        // Update session statistics
+        this.updateSessionStats(sessionId, message);
+        
+        // Check preventive actions
+        if (this.shouldBlockMessage(message)) {
+          console.log(`🚫 Preventive action: Blocking ${message.type} message`);
+          await this.logPreventiveAction(sessionId, message);
+          return; // Block the message
+        }
+        
         // Real-time smart contract validation
         const validationResult = await this.validateMessageWithSmartContract(sessionId, message);
         
@@ -176,7 +215,7 @@ class VNCProtocolMiddleware extends EventEmitter {
       
       // Check for file transfer operations
       const fileOperations = messages.filter(msg => 
-        msg.type === 'FILE_TRANSFER' || msg.type === 'CLIPBOARD_DATA'
+        msg.type === 'FILE_TRANSFER_RESPONSE' || msg.type === 'SERVER_CUT_TEXT'
       );
       
       if (fileOperations.length > 0) {
@@ -232,6 +271,12 @@ class VNCProtocolMiddleware extends EventEmitter {
               offset += 8 + cutTextMessage.length;
               break;
               
+            case this.VNC_MESSAGES.FILE_TRANSFER_REQUEST:
+              const fileTransferMessage = this.parseFileTransferRequest(buffer, offset);
+              messages.push(fileTransferMessage);
+              offset += fileTransferMessage.totalLength;
+              break;
+              
             default:
               // Skip unknown message
               offset += 1;
@@ -251,6 +296,12 @@ class VNCProtocolMiddleware extends EventEmitter {
               const serverCutText = this.parseServerCutText(buffer, offset);
               messages.push(serverCutText);
               offset += 8 + serverCutText.length;
+              break;
+              
+            case this.VNC_MESSAGES.FILE_TRANSFER_RESPONSE:
+              const fileResponse = this.parseFileTransferResponse(buffer, offset);
+              messages.push(fileResponse);
+              offset += fileResponse.totalLength;
               break;
               
             default:
@@ -287,7 +338,7 @@ class VNCProtocolMiddleware extends EventEmitter {
       clientIp: session.clientIp,
       action: message.type,
       dataSize: message.size || 0,
-      fileOperations: message.type === 'FILE_TRANSFER' ? [message] : [],
+      fileOperations: message.type === 'FILE_TRANSFER_REQUEST' ? [message] : [],
       clipboardAccess: message.type === 'CLIENT_CUT_TEXT' || message.type === 'SERVER_CUT_TEXT',
       controlRequests: message.type === 'KEY_EVENT' || message.type === 'POINTER_EVENT' ? [message] : []
     };
@@ -300,22 +351,52 @@ class VNCProtocolMiddleware extends EventEmitter {
   }
 
   /**
-   * Verify file integrity in real-time during transfer
+   * Verify file integrity in real-time during transfer using enhanced service
    */
   async verifyFileIntegrityRealTime(sessionId, fileOperation) {
     if (!fileOperation.fileData) {
       return { valid: true }; // No file data to verify
     }
     
-    const transferData = {
-      fileBuffer: fileOperation.fileData,
-      fileName: fileOperation.fileName || 'unknown',
-      sessionId: sessionId,
-      transferDirection: 'incoming'
-    };
+    // Use the enhanced file integrity service
+    const fileName = fileOperation.fileName || 'unknown_file';
+    const integrityResult = await this.fileIntegrityService.verifyFileIntegrity(
+      fileOperation.fileData, 
+      fileName, 
+      sessionId
+    );
     
-    // Use blockchain data provenance service for verification
-    return await this.dataProvenance.verifyFileIntegrity(transferData);
+    // Log the integrity check result
+    console.log(`🔒 File integrity check for ${fileName}: ${integrityResult.overallValid ? 'PASSED' : 'FAILED'}`);
+    
+    if (!integrityResult.overallValid) {
+      // Report high-risk file transfer
+      await this.reportThreatIntelligence(sessionId, 'FILE_INTEGRITY_VIOLATION', {
+        fileName: fileName,
+        riskScore: integrityResult.riskScore,
+        severity: integrityResult.severity,
+        issues: integrityResult.issues
+      });
+      
+      // Log to blockchain
+      await this.blockchainAudit.createSessionAuditEntry({
+        sessionId: sessionId,
+        clientIp: this.activeSessions.get(sessionId).clientIp,
+        serverIp: this.config.demo.serverIp,
+        action: 'file_integrity_violation',
+        dataTransferred: fileOperation.size || 0,
+        riskScore: integrityResult.riskScore,
+        authMethod: 'file_integrity_service',
+        description: `File integrity violation: ${fileName}`,
+        metadata: {
+          fileName: fileName,
+          issues: integrityResult.issues,
+          severity: integrityResult.severity
+        }
+      });
+    }
+    
+    return integrityResult;
   }
 
   /**
@@ -434,7 +515,7 @@ class VNCProtocolMiddleware extends EventEmitter {
         }
         break;
         
-      case 'FILE_TRANSFER':
+      case 'FILE_TRANSFER_REQUEST':
         session.fileTransfers.push({
           fileName: message.fileName,
           size: message.size,
@@ -454,6 +535,8 @@ class VNCProtocolMiddleware extends EventEmitter {
         break;
         
       case 'KEY_EVENT':
+        session.keyEvents = (session.keyEvents || 0) + 1;
+        
         // Detect potential credential harvesting
         if (this.detectCredentialHarvesting(message, session)) {
           await this.reportThreatIntelligence(sessionId, 'CREDENTIAL_HARVESTING', {
@@ -462,6 +545,81 @@ class VNCProtocolMiddleware extends EventEmitter {
           });
         }
         break;
+        
+      case 'POINTER_EVENT':
+        session.pointerEvents = (session.pointerEvents || 0) + 1;
+        break;
+        
+      case 'FRAMEBUFFER_UPDATE':
+        session.screenshots = (session.screenshots || 0) + 1;
+        break;
+    }
+  }
+
+  /**
+   * Enhanced preventive action checking
+   */
+  shouldBlockMessage(message) {
+    switch (message.type) {
+      case 'KEY_EVENT':
+        return this.preventiveActions.blockKeyEvent;
+      case 'POINTER_EVENT':
+        return this.preventiveActions.blockPointerEvent;
+      case 'CLIENT_CUT_TEXT':
+        return this.preventiveActions.blockClipboard;
+      case 'FILE_TRANSFER_REQUEST':
+        return this.preventiveActions.blockFileTransfer;
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Log preventive actions taken
+   */
+  async logPreventiveAction(sessionId, message) {
+    const session = this.activeSessions.get(sessionId);
+    if (!session) return;
+    
+    await this.blockchainAudit.createSessionAuditEntry({
+      sessionId: sessionId,
+      clientIp: session.clientIp,
+      serverIp: this.config.demo.serverIp,
+      action: 'prevented_' + message.type.toLowerCase(),
+      dataTransferred: 0,
+      riskScore: 30,
+      authMethod: 'preventive_action',
+      description: `Preventive action blocked ${message.type}`,
+      metadata: {
+        messageType: message.type,
+        messageSize: message.size
+      }
+    });
+  }
+
+  /**
+   * Update session statistics
+   */
+  updateSessionStats(sessionId, message) {
+    const session = this.activeSessions.get(sessionId);
+    if (!session) return;
+    
+    // Rate limiting checks
+    const now = Date.now();
+    const sessionDurationMinutes = (now - session.startTime) / (1000 * 60);
+    
+    // Check data transfer rate
+    const dataRateMBps = (session.dataTransferred / (1024 * 1024)) / ((now - session.startTime) / 1000);
+    if (dataRateMBps > this.preventiveActions.maxDataTransferRate) {
+      console.log(`⚠️ High data transfer rate detected: ${dataRateMBps.toFixed(2)} MB/s`);
+    }
+    
+    // Check screenshot rate
+    if (sessionDurationMinutes > 0) {
+      const screenshotRate = session.screenshots / sessionDurationMinutes;
+      if (screenshotRate > this.preventiveActions.maxScreenshotRate) {
+        console.log(`⚠️ High screenshot rate detected: ${screenshotRate.toFixed(2)} screenshots/minute`);
+      }
     }
   }
 
@@ -490,6 +648,15 @@ class VNCProtocolMiddleware extends EventEmitter {
     
     // Clipboard operations risk
     if (session.clipboardOps > 20) riskScore += 10;
+    
+    // Key events risk (potential keylogger)
+    if (session.keyEvents > 1000) riskScore += 15;
+    
+    // Pointer events risk
+    if (session.pointerEvents > 5000) riskScore += 10;
+    
+    // Screenshots risk
+    if (session.screenshots > 100) riskScore += 15;
     
     return Math.min(riskScore, 100);
   }
@@ -572,6 +739,33 @@ class VNCProtocolMiddleware extends EventEmitter {
     };
   }
 
+  parseFileTransferRequest(buffer, offset) {
+    // Simplified file transfer parsing
+    const fileNameLength = buffer.readUInt32BE(offset + 4);
+    const fileName = buffer.slice(offset + 8, offset + 8 + fileNameLength).toString('utf8');
+    const fileSize = buffer.readUInt32BE(offset + 8 + fileNameLength);
+    
+    return {
+      type: 'FILE_TRANSFER_REQUEST',
+      fileName: fileName,
+      size: fileSize,
+      totalLength: 8 + fileNameLength + 4,
+      fileData: buffer.slice(offset, offset + 8 + fileNameLength + 4)
+    };
+  }
+
+  parseFileTransferResponse(buffer, offset) {
+    // Simplified file transfer response parsing
+    const fileSize = buffer.readUInt32BE(offset + 4);
+    
+    return {
+      type: 'FILE_TRANSFER_RESPONSE',
+      size: fileSize,
+      totalLength: 4 + fileSize,
+      fileData: buffer.slice(offset + 4, offset + 4 + fileSize)
+    };
+  }
+
   /**
    * Utility functions
    */
@@ -604,6 +798,10 @@ class VNCProtocolMiddleware extends EventEmitter {
 
   detectCredentialHarvesting(keyEvent, session) {
     // Simplified detection - would implement sophisticated pattern analysis
+    // Check for rapid succession of key events that might indicate keylogging
+    if (session.keyEvents > 100 && (Date.now() - session.startTime) < 60000) {
+      return true; // More than 100 key events in less than a minute
+    }
     return false;
   }
 
@@ -624,7 +822,8 @@ class VNCProtocolMiddleware extends EventEmitter {
       'SENSITIVE_CLIPBOARD_ACCESS': 'high',
       'CREDENTIAL_HARVESTING': 'critical',
       'FILE_TAMPERING': 'critical',
-      'UNAUTHORIZED_ACCESS': 'high'
+      'UNAUTHORIZED_ACCESS': 'high',
+      'FILE_INTEGRITY_VIOLATION': 'critical'
     };
     
     return severityMap[threatType] || 'medium';
@@ -642,6 +841,66 @@ class VNCProtocolMiddleware extends EventEmitter {
         .reduce((total, session) => total + session.fileTransfers.length, 0),
       blockchainEnforcements: this.enforcementRules.size
     };
+  }
+  
+  /**
+   * Enhanced session information
+   */
+  getSessionDetails(sessionId) {
+    const session = this.activeSessions.get(sessionId);
+    if (!session) return null;
+    
+    return {
+      sessionId: session.sessionId,
+      clientIp: session.clientIp,
+      serverPort: session.serverPort,
+      startTime: new Date(session.startTime).toISOString(),
+      dataTransferred: session.dataTransferred,
+      fileTransfers: session.fileTransfers.length,
+      keyEvents: session.keyEvents || 0,
+      pointerEvents: session.pointerEvents || 0,
+      clipboardOps: session.clipboardOps || 0,
+      screenshots: session.screenshots || 0,
+      riskScore: this.calculateRealTimeRiskScore(session, {})
+    };
+  }
+  
+  /**
+   * Get all active sessions
+   */
+  getAllSessions() {
+    const sessions = [];
+    for (const [sessionId, session] of this.activeSessions) {
+      sessions.push(this.getSessionDetails(sessionId));
+    }
+    return sessions;
+  }
+  
+  /**
+   * Configure file integrity service
+   */
+  configureFileIntegrityService(config) {
+    if (this.fileIntegrityService) {
+      this.fileIntegrityService.configureVerificationMethods(config);
+    }
+  }
+  
+  /**
+   * Add suspicious pattern to file integrity service
+   */
+  addSuspiciousPattern(pattern) {
+    if (this.fileIntegrityService) {
+      this.fileIntegrityService.addSuspiciousPattern(pattern);
+    }
+  }
+  
+  /**
+   * Add dangerous extension to file integrity service
+   */
+  addDangerousExtension(extension) {
+    if (this.fileIntegrityService) {
+      this.fileIntegrityService.addDangerousExtension(extension);
+    }
   }
 }
 

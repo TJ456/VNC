@@ -23,6 +23,7 @@ const analyticsRoutes = require('./routes/analytics');
 const mlRoutes = require('./routes/ml');
 const blockchainRoutes = require('./routes/blockchain');
 const blockchainDemoRoutes = require('./routes/blockchainDemo');
+const vncRoutes = require('./routes/vnc');
 
 // Import services
 const VNCMonitorService = require('./services/VNCMonitorService');
@@ -98,6 +99,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/ml', mlRoutes);
 app.use('/api/blockchain', blockchainRoutes);
 app.use('/api/blockchain', blockchainDemoRoutes);
+app.use('/api/vnc', vncRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -116,6 +118,7 @@ app.get('/', (req, res) => {
       analytics: '/api/analytics',
       ml: '/api/ml',
       blockchain: '/api/blockchain',
+      vnc: '/api/vnc',
       websocket: '/ws'
     }
   });

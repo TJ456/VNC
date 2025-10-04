@@ -69,26 +69,17 @@ npm run demo
 
 ## 🏗️ Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│               VNC Protection Platform v2.0                         │
-│            (Express.js + Prisma + React + ML)                   │
-├─────────────────┬─────────────────┬─────────────────────────────────┤
-│  🎨 React Frontend      │  🚀 Express.js Backend    │  🤖 Python ML Service  │
-│  (TypeScript + MUI)    │  (Node.js + Prisma)    │  (Flask + scikit)    │
-│  Port: 3000            │  Port: 3000 (API)      │  Port: 5001          │
-├─────────────────┼─────────────────┼─────────────────────────────────┤
-│  • Real-time Dashboard  │  • RESTful APIs        │  • Isolation Forest   │
-│  • Interactive Charts  │  • WebSocket Server    │  • Random Forest      │
-│  • Session Management │  • JWT Authentication  │  • Anomaly Detection  │
-│  • Attack Simulation  │  • Rate Limiting       │  • Threat Prediction  │
-├─────────────────┴─────────────────┴─────────────────────────────────┤
-│                   🗄️ PostgreSQL + Prisma Database                    │
-│                      (Type-safe ORM + Migrations)                   │
-├─────────────────────────────────────────────────────────────────────┤
-│                    🔍 VNC Monitoring & Prevention                     │
-│                   (Cross-platform + Real-time Response)              │
-└─────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    A[VNC Clients] --> B[VNC Proxy/Interception Layer]
+    B --> C[VNC Servers]
+    B --> D[VNC Protection Platform]
+    D --> E[Express.js Backend]
+    E --> F[PostgreSQL Database]
+    E --> G[Python ML Service]
+    E --> H[Blockchain Services]
+    D --> I[React Frontend]
+    J[TigerVNC/RealVNC] --> C
 ```
 
 ### 📊 Technology Stack
@@ -319,6 +310,25 @@ WHITELIST_NETWORKS=192.168.0.0/16,10.0.0.0/8
 - **ML Accuracy**: Observe anomaly detection confidence scores
 - **Comprehensive Analytics**: View threat patterns and statistics
 
+## 🔧 VNC Integration with TigerVNC and RealVNC
+
+The platform provides comprehensive integration with both TigerVNC and RealVNC:
+
+### Integration Features
+- **Passive Monitoring**: Detects and monitors existing VNC connections
+- **Active Interception**: Transparent proxy for real-time protocol analysis
+- **File Integrity Verification**: Blockchain-based file transfer validation
+- **Protocol-Level Control**: Block specific VNC actions in real-time
+
+### Setup Guide
+See the detailed [VNC Integration Setup Guide](SETUP_VNC_INTEGRATION.md) for complete installation and configuration instructions.
+
+### Testing Capabilities
+- **TigerVNC Compatibility**: Full support for TigerVNC server and client
+- **RealVNC Compatibility**: Complete integration with RealVNC implementations
+- **Attack Simulation**: Built-in tools for testing all data exfiltration scenarios
+- **Wireshark Integration**: Network traffic analysis capabilities
+
 ## 🐛 Troubleshooting
 
 ### Common Issues
@@ -352,9 +362,10 @@ python start_platform.py
 
 ## 📁 Project Structure
 
-```
+```bash
 vnc-protection-platform/
 ├── backend/              # FastAPI backend services
+├── backend-express/      # Express.js backend services
 ├── frontend/             # React dashboard
 ├── detection/            # ML models and detection algorithms
 ├── simulation/           # Attack simulation scripts
@@ -423,6 +434,7 @@ vnc-protection-platform/
 - **🔧 API Documentation**: http://localhost:8000/docs (when running)
 - **🎯 Demo Scripts**: `quick_demo.py` and `simulation/demo.py`
 - **⚙️ Configuration Guide**: `configs/.env.example`
+- **🖥️ VNC Integration Guide**: `SETUP_VNC_INTEGRATION.md`
 
 ## 🔄 Continuous Improvement
 
