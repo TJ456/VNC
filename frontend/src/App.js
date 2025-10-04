@@ -23,6 +23,7 @@ import {
   Assessment as AnalyticsIcon,
   Settings as SettingsIcon,
   Warning as ThreatIcon,
+  AccountTree as BlockchainIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -32,6 +33,7 @@ import ThreatMonitoring from './pages/ThreatMonitoring';
 import NetworkAnalysis from './pages/NetworkAnalysis';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
+import BlockchainSecurity from './pages/BlockchainSecurity';
 import { WebSocketService } from './services/WebSocketService';
 
 const drawerWidth = 240;
@@ -111,6 +113,7 @@ function App() {
       ), 
       path: '/threats' 
     },
+    { text: 'Blockchain Security', icon: <BlockchainIcon />, path: '/blockchain' },
     { text: 'Network Analysis', icon: <NetworkIcon />, path: '/network' },
     { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
@@ -188,6 +191,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/threats" element={<ThreatMonitoring />} />
+          <Route path="/blockchain" element={<BlockchainSecurity />} />
           <Route path="/network" element={<NetworkAnalysis />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/settings" element={<Settings />} />

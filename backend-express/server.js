@@ -21,11 +21,16 @@ const simulationRoutes = require('./routes/simulation');
 const firewallRoutes = require('./routes/firewall');
 const analyticsRoutes = require('./routes/analytics');
 const mlRoutes = require('./routes/ml');
+const blockchainRoutes = require('./routes/blockchain');
 
 // Import services
 const VNCMonitorService = require('./services/VNCMonitorService');
 const WebSocketService = require('./services/WebSocketService');
 const MetricsService = require('./services/MetricsService');
+const BlockchainAuditService = require('./services/BlockchainAuditService');
+const ZeroTrustAccessService = require('./services/ZeroTrustAccessService');
+const DecentralizedThreatIntelligenceService = require('./services/DecentralizedThreatIntelligenceService');
+const DataProvenanceService = require('./services/DataProvenanceService');
 
 const app = express();
 const server = http.createServer(app);
@@ -37,6 +42,10 @@ const wsService = new WebSocketService(wss);
 // Initialize services
 const vncMonitor = new VNCMonitorService(prisma, wsService);
 const metricsService = new MetricsService(prisma);
+const blockchainAudit = new BlockchainAuditService();
+const zeroTrustAccess = new ZeroTrustAccessService();
+const threatIntelligence = new DecentralizedThreatIntelligenceService();
+const dataProvenance = new DataProvenanceService();
 
 // Rate limiting
 const limiter = rateLimit({
@@ -70,6 +79,10 @@ app.use((req, res, next) => {
   req.wsService = wsService;
   req.vncMonitor = vncMonitor;
   req.metricsService = metricsService;
+  req.blockchainAudit = blockchainAudit;
+  req.zeroTrustAccess = zeroTrustAccess;
+  req.threatIntelligence = threatIntelligence;
+  req.dataProvenance = dataProvenance;
   next();
 });
 
@@ -82,6 +95,7 @@ app.use('/api/simulate-attack', simulationRoutes);
 app.use('/api/firewall', firewallRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/ml', mlRoutes);
+app.use('/api/blockchain', blockchainRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -99,6 +113,7 @@ app.get('/', (req, res) => {
       firewall: '/api/firewall',
       analytics: '/api/analytics',
       ml: '/api/ml',
+      blockchain: '/api/blockchain',
       websocket: '/ws'
     }
   });

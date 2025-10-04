@@ -30,7 +30,13 @@
     "morgan": "^1.10.0",
     "node-cron": "^3.0.3",
     "uuid": "^9.0.1",
-    "ws": "^8.14.2"
+    "ws": "^8.14.2",
+    "web3": "^4.2.2",
+    "ethereum-cryptography": "^2.1.2",
+    "merkletreejs": "^0.3.11",
+    "crypto-js": "^4.2.0",
+    "@truffle/hdwallet-provider": "^2.1.15",
+    "ganache": "^7.9.1"
   },
   "devDependencies": {
     "@types/node": "^20.8.0",
