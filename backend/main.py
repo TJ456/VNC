@@ -331,7 +331,7 @@ async def monitoring_task():
             logger.error(f"Error in monitoring task: {e}")
             await asyncio.sleep(30)  # Wait longer on error
 
-@app.on_event("startup")
+# @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
     logger.info("Starting VNC Protection Platform...")

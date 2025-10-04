@@ -64,7 +64,7 @@ class ApiService {
 
   // Attack simulation
   async simulateAttack(attackType, targetIp = '127.0.0.1') {
-    const response = await this.client.post('/simulation/simulate', {
+    const response = await this.client.post('http://localhost:8000/api/simulate-attack', {
       attack_type: attackType,
       target_ip: targetIp
     });
