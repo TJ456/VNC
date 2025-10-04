@@ -22,6 +22,7 @@ const firewallRoutes = require('./routes/firewall');
 const analyticsRoutes = require('./routes/analytics');
 const mlRoutes = require('./routes/ml');
 const blockchainRoutes = require('./routes/blockchain');
+const blockchainDemoRoutes = require('./routes/blockchainDemo');
 
 // Import services
 const VNCMonitorService = require('./services/VNCMonitorService');
@@ -96,6 +97,7 @@ app.use('/api/firewall', firewallRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/ml', mlRoutes);
 app.use('/api/blockchain', blockchainRoutes);
+app.use('/api/blockchain', blockchainDemoRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {

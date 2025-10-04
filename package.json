@@ -1,5 +1,19 @@
 {
+  "name": "vnc-protection-platform",
+  "version": "2.0.0-blockchain",
+  "description": "Revolutionary VNC Security Platform with Blockchain Enhancement",
+  "scripts": {
+    "setup": "node scripts/setup.js",
+    "demo": "node quick_demo.js",
+    "start": "node start-platform.js",
+    "test": "python -m pytest tests/ -v",
+    "blockchain-demo": "node scripts/blockchain-demo.js",
+    "validate-blockchain": "node scripts/validate-blockchain.js",
+    "demo-comprehensive": "curl -X POST http://localhost:3000/api/blockchain/demo/comprehensive",
+    "test-config": "node scripts/test-configurability.js"
+  },
   "dependencies": {
-    "axios": "^1.12.2"
+    "axios": "^1.12.2",
+    "chalk": "^4.1.2"
   }
 }

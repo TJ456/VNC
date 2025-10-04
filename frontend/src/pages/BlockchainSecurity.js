@@ -725,7 +725,7 @@ function BlockchainSecurity() {
             <Grid item xs={12} md={3}>
               <Box textAlign="center">
                 <Typography variant="h4" color="success.main">
-                  ⛓️ 99.9%
+                  ⛓️ {process.env.REACT_APP_BLOCKCHAIN_UPTIME || '99.9%'}
                 </Typography>
                 <Typography variant="body2" color="textSecondary">
                   Network Uptime
@@ -736,7 +736,7 @@ function BlockchainSecurity() {
             <Grid item xs={12} md={3}>
               <Box textAlign="center">
                 <Typography variant="h4" color="primary.main">
-                  🚀 1.2s
+                  🚀 {process.env.REACT_APP_BLOCK_TIME || '1.2s'}
                 </Typography>
                 <Typography variant="body2" color="textSecondary">
                   Avg Block Time
@@ -747,7 +747,7 @@ function BlockchainSecurity() {
             <Grid item xs={12} md={3}>
               <Box textAlign="center">
                 <Typography variant="h4" color="warning.main">
-                  ⛽ 20 Gwei
+                  ⛽ {process.env.REACT_APP_GAS_PRICE || '20 Gwei'}
                 </Typography>
                 <Typography variant="body2" color="textSecondary">
                   Gas Price
@@ -758,7 +758,7 @@ function BlockchainSecurity() {
             <Grid item xs={12} md={3}>
               <Box textAlign="center">
                 <Typography variant="h4" color="info.main">
-                  🌐 15
+                  🌐 {process.env.REACT_APP_CONSORTIUM_NODES || '15'}
                 </Typography>
                 <Typography variant="body2" color="textSecondary">
                   Consortium Nodes
